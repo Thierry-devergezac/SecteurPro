@@ -130,20 +130,28 @@
             document.getElementById('recap-body').innerHTML = Object.keys(totaux).map(agent => `<tr><td>${agent}</td><td>${convertirEnHeuresMinutes(totaux[agent])}</td></tr>`).join('');
         }
 
-        function exporterCSV() { const type = document.getElementById('export-choice').value; const data = DATA[type]; if (!data.length) return alert("Pas de données"); let csv = Object.keys(data[0]).join(',') + '\n' + data.map(r => Object.values(r).map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(',')).join('\n'); const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv); a.download = `SecteurPro_${type}.csv`; a.click(); }
-        function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
-        function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
-       // Chargement automatique des données
-    window.onload = function() {
-        fetch('data.json')
-            .then(response => response.json())
-            .then(data => {
-                DATA = data;
-                refreshAll();
-                console.log("Données chargées avec succès !");
-            })
-            .catch(error => console.error("Erreur de chargement :", error));
-    };
-</script>
+      function exporterCSV() { /* ... ton code ... */ }
+        function sauvegarderFichier() { /* ... ton code ... */ }
+        function chargerSauvegarde(e) { /* ... ton code ... */ }
+
+        // Chargement automatique des données au démarrage
+        window.onload = function() {
+            fetch('data.json')
+                .then(response => {
+                    if (!response.ok) throw new Error("Fichier non trouvé");
+                    return response.json();
+                })
+                .then(data => {
+                    DATA = data;
+                    refreshAll();
+                    console.log("Données chargées avec succès !");
+                })
+                .catch(error => {
+                    console.error("Erreur de chargement :", error);
+                    // Optionnel : si le fichier n'est pas trouvé, on affiche une alerte
+                    alert("Impossible de charger les données : " + error.message);
+                });
+        };
+    </script>
 </body>
 </html>
