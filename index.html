@@ -134,6 +134,20 @@
         function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
         function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
         refreshAll();
+        // Fonction pour charger automatiquement les données depuis le web
+function chargerAuto() {
+    fetch('SecteurPro_Backup(1).json') // Le nom de ton fichier sur GitHub
+        .then(response => response.json())
+        .then(data => {
+            DATA = data;
+            refreshAll(); // On rafraîchit l'affichage avec les données
+            console.log("Données chargées depuis GitHub !");
+        })
+        .catch(error => console.error("Erreur chargement :", error));
+}
+
+// Lancer le chargement au démarrage
+window.onload = chargerAuto;
     </script>
 </body>
 </html>
