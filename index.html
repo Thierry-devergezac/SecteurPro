@@ -133,21 +133,17 @@
         function exporterCSV() { const type = document.getElementById('export-choice').value; const data = DATA[type]; if (!data.length) return alert("Pas de données"); let csv = Object.keys(data[0]).join(',') + '\n' + data.map(r => Object.values(r).map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(',')).join('\n'); const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv); a.download = `SecteurPro_${type}.csv`; a.click(); }
         function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
         function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
-        refreshAll();
-        // Fonction pour charger automatiquement les données depuis le web
-function chargerAuto() {
-    fetch('SecteurPro_Backup(1).json') // Le nom de ton fichier sur GitHub
-        .then(response => response.json())
-        .then(data => {
-            DATA = data;
-            refreshAll(); // On rafraîchit l'affichage avec les données
-            console.log("Données chargées depuis GitHub !");
-        })
-        .catch(error => console.error("Erreur chargement :", error));
-}
-
-// Lancer le chargement au démarrage
-window.onload = chargerAuto;
-    </script>
+       // Chargement automatique des données
+    window.onload = function() {
+        fetch('data.json')
+            .then(response => response.json())
+            .then(data => {
+                DATA = data;
+                refreshAll();
+                console.log("Données chargées avec succès !");
+            })
+            .catch(error => console.error("Erreur de chargement :", error));
+    };
+</script>
 </body>
 </html>
