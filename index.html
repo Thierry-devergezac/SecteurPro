@@ -53,6 +53,7 @@
         </div>
         <input type="number" id="surf-val" placeholder="Surface m²">
         <button onclick="ajouterLigneEtab()">Ajouter</button>
+        <p id="msg-etab" style="color: #10b981; font-size: 13px; font-weight: bold; height: 20px;"></p>
         <table id="etab-table"><thead><tr><th>Bât</th><th>Ét</th><th>Sect</th><th>Ref</th><th>m²</th><th>Action</th></tr></thead><tbody id="etab-body"></tbody></table>
     </div>
 
@@ -67,12 +68,27 @@
 
     <div id="p3" class="panel">
         <h3>Affectation des agents</h3>
-        <select id="select-agent-affect"></select>
+        <select id="select-agent-affect" onchange="afficherAffectations()"></select>
         <select id="select-local-affect"></select>
         <button onclick="ajouterAffectation()">Affecter</button>
-        <table id="affect-table"><thead><tr><th>Agent</th><th>Local</th><th>Ref</th><th>m²</th><th>Temps</th><th>Action</th></tr></thead><tbody id="affect-body"></tbody></table>
+        <table id="affect-table">
+            <thead>
+                <tr>
+                    <th>Agent</th>
+                    <th>Bât/Ét/Sect</th>
+                    <th>Ref</th>
+                    <th>m²</th>
+                    <th>Temps</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="affect-body"></tbody>
+        </table>
         <h3 style="margin-top:30px;">Récapitulatif par Agent</h3>
-        <table id="recap-table"><thead><tr><th>Agent</th><th>Temps Total</th></tr></thead><tbody id="recap-body"></tbody></table>
+        <table id="recap-table">
+            <thead><tr><th>Agent</th><th>Temps Total</th></tr></thead>
+            <tbody id="recap-body"></tbody>
+        </table>
     </div>
 
     <div id="p4" class="panel">
@@ -90,6 +106,10 @@
             <h4>Charger une Sauvegarde</h4>
             <input type="file" onchange="chargerSauvegarde(event)" accept=".json">
         </div>
+    </div>
+    <div style="margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px;">
+        <h4>Réinitialisation</h4>
+        <button onclick="viderDonnees()" style="background: #ef4444;">Tout effacer (Établissement, Agents & Affectations)</button> 
     </div>
 
     <script>
@@ -110,7 +130,10 @@
         function afficherDico() { document.getElementById('dico-list').innerHTML = '<ul>' + DATA.dico.map(i => `<li>${i.type}: ${i.val}</li>`).join('') + '</ul>'; }
         
         function majListesEtab() { ['select-bat', 'select-etage', 'select-secteur', 'select-ref'].forEach(id => { const type = id.replace('select-', ''); document.getElementById(id).innerHTML = `<option value="">${type.toUpperCase()}</option>` + DATA.dico.filter(i => i.type === type).map(i => `<option value="${i.val}">${i.val}</option>`).join(''); }); }
-        function ajouterLigneEtab() { const ligne = { bat: document.getElementById('select-bat').value, etage: document.getElementById('select-etage').value, secteur: document.getElementById('select-secteur').value, ref: document.getElementById('select-ref').value, surface: parseFloat(document.getElementById('surf-val').value) || 0 }; if(ligne.bat && ligne.secteur) { DATA.etab.push(ligne); saveAll(); } else alert("Champs obligatoires"); }
+        function ajouterLigneEtab() { 
+            const ligne = { bat: document.getElementById('select-bat').value, etage: document.getElementById('select-etage').value, secteur: document.getElementById('select-secteur').value, ref: document.getElementById('select-ref').value, surface: parseFloat(document.getElementById('surf-val').value) || 0 }; 
+            if(ligne.bat && ligne.secteur) { DATA.etab.push(ligne); saveAll(); const msg = document.getElementById('msg-etab'); msg.innerText = "✓ Secteur affecté la liste"; setTimeout(() => { msg.innerText = ""; }, 2000); } else { alert("Champs obligatoires"); }
+        }
         function afficherTableauEtab() { document.getElementById('etab-body').innerHTML = DATA.etab.map((l, i) => `<tr><td>${l.bat}</td><td>${l.etage}</td><td>${l.secteur}</td><td>${l.ref}</td><td>${l.surface}</td><td><button onclick="DATA.etab.splice(${i},1);saveAll();" style="background:#ef4444;">X</button></td></tr>`).join(''); }
         
         function ajouterAgent() { const nom = document.getElementById('agent-nom').value; if(nom) { DATA.agents.push({id: 'AG-'+(DATA.agents.length+1), nom, prenom: document.getElementById('agent-prenom').value, fonction: document.getElementById('agent-fonction').value}); saveAll(); } }
@@ -119,43 +142,148 @@
         function majListesAffectation() { document.getElementById('select-agent-affect').innerHTML = '<option value="">Choisir un Agent</option>' + DATA.agents.map(a => `<option value="${a.nom} ${a.prenom}">${a.nom} ${a.prenom}</option>`).join(''); document.getElementById('select-local-affect').innerHTML = '<option value="">Choisir un Local</option>' + DATA.etab.map((l, i) => `<option value="${i}">${l.bat} > ${l.etage} > ${l.secteur} (${l.ref})</option>`).join(''); }
         function ajouterAffectation() { const agent = document.getElementById('select-agent-affect').value; const idx = document.getElementById('select-local-affect').value; if(agent && idx !== "") { DATA.affect.push({agent, local: DATA.etab[idx]}); saveAll(); } }
         function convertirEnHeuresMinutes(h) { return `${Math.floor(h)}h${Math.round((h-Math.floor(h))*60).toString().padStart(2, '0')}`; }
+        
         function afficherAffectations() {
+            const agentSelectionne = document.getElementById('select-agent-affect').value;
+            const dataFiltree = agentSelectionne ? DATA.affect.filter(a => a.agent === agentSelectionne) : DATA.affect;
+            
+            const groupes = dataFiltree.reduce((acc, a) => {
+                if (!acc[a.agent]) acc[a.agent] = { lignes: [], totalTemps: 0 };
+                
+                const referenceExiste = CADENCES.hasOwnProperty(a.local.ref);
+                const cadence = CADENCES[a.local.ref] || {type: 'm2', val: 0};
+                const surface = parseFloat(a.local.surface) || 0;
+                const temps = (!referenceExiste || cadence.val === 0) ? 0 : 
+                              (cadence.type === 'm2') ? (surface/cadence.val) : (surface*cadence.val);
+                
+                acc[a.agent].lignes.push({ original: a, temps: temps, surface: surface });
+                acc[a.agent].totalTemps += temps;
+                return acc;
+            }, {});
+
+            let htmlAffect = "";
             const totaux = {};
-            document.getElementById('affect-body').innerHTML = DATA.affect.map((a, i) => {
-                const cadence = CADENCES[a.local.ref] || {type: 'm2', val: 100};
-                const temps = (cadence.type === 'm2') ? (parseFloat(a.local.surface)/cadence.val) : (parseFloat(a.local.surface)*cadence.val);
-                totaux[a.agent] = (totaux[a.agent] || 0) + temps;
-                return `<tr><td>${a.agent}</td><td>${a.local.bat}/${a.local.etage}/${a.local.secteur}</td><td>${a.local.ref}</td><td>${a.local.surface}</td><td>${convertirEnHeuresMinutes(temps)}</td><td><button onclick="DATA.affect.splice(${i},1);saveAll();" style="background:#ef4444;">X</button></td></tr>`;
-            }).join('');
-            document.getElementById('recap-body').innerHTML = Object.keys(totaux).map(agent => `<tr><td>${agent}</td><td>${convertirEnHeuresMinutes(totaux[agent])}</td></tr>`).join('');
+            let totalM2 = 0;
+
+            Object.keys(groupes).forEach(nomAgent => {
+                const g = groupes[nomAgent];
+                totaux[nomAgent] = g.totalTemps;
+                
+                g.lignes.forEach(l => {
+                    const originalIndex = DATA.affect.indexOf(l.original);
+                    const referenceExiste = CADENCES.hasOwnProperty(l.original.local.ref);
+                    
+                    if (!l.original.local.ref.includes('ESC') && referenceExiste) {
+                        totalM2 += l.surface;
+                    }
+                    
+                    htmlAffect += `<tr>
+                        <td>${l.original.agent}</td>
+                        <td>${l.original.local.bat}/${l.original.local.etage}/${l.original.local.secteur}</td>
+                        <td>${l.original.local.ref}</td>
+                        <td>${l.surface}</td>
+                        <td>${convertirEnHeuresMinutes(l.temps)}</td>
+                        <td><button onclick="DATA.affect.splice(${originalIndex},1);saveAll();" style="background:#ef4444;">X</button></td>
+                    </tr>`;
+                });
+
+                if (!agentSelectionne) {
+                    htmlAffect += `<tr style="background:#334155; font-weight:bold; color:white;">
+                        <td colspan="4">Total ${nomAgent}</td>
+                        <td>${convertirEnHeuresMinutes(g.totalTemps)}</td>
+                        <td></td>
+                    </tr>`;
+                }
+            });
+
+            document.getElementById('affect-body').innerHTML = htmlAffect;
+
+            let recapHTML = "";
+            if (agentSelectionne) {
+                recapHTML = `<tr><td>${agentSelectionne}</td><td>${convertirEnHeuresMinutes(totaux[agentSelectionne] || 0)}</td></tr>`;
+            } else {
+                recapHTML = Object.keys(totaux).map(ag => `<tr><td>${ag}</td><td>${convertirEnHeuresMinutes(totaux[ag])}</td></tr>`).join('');
+            }
+            recapHTML += `<tr style="border-top:2px solid #3b82f6; font-weight:bold;"><td>TOTAL GÉNÉRAL</td><td>${totalM2.toFixed(2)} m²</td></tr>`;
+            document.getElementById('recap-body').innerHTML = recapHTML;
         }
 
-        function exporterCSV() { const type = document.getElementById('export-choice').value; const data = DATA[type]; if (!data.length) return alert("Pas de données"); let csv = Object.keys(data[0]).join(',') + '\n' + data.map(r => Object.values(r).map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(',')).join('\n'); const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv); a.download = `SecteurPro_${type}.csv`; a.click(); }
-        function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
-        function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
-       // Chargement automatique des données
-        // Remplace bien par l'URL que tu as copiée après avoir cliqué sur "Raw"
-// Chargement automatique conditionnel
-fetch('https://raw.githubusercontent.com/Thierry-devergezac/SecteurPro/refs/heads/main/data.json')
-    .then(response => {
-        if (!response.ok) throw new Error("Erreur serveur");
-        return response.json();
-    })
-    .then(data => {
-        // On ne met à jour que si le localStorage est vide (première utilisation)
-        if (!localStorage.getItem('secteurPro_master')) {
-            DATA = data;
-            saveAll();
-            console.log("Données distantes initialisées.");
-        } else {
-            console.log("Données locales conservées.");
-        }
-        refreshAll();
-    })
-    .catch(error => {
-        console.warn("Utilisation du mode hors-ligne :", error);
-        refreshAll();
+        function exporterCSV() {
+    const type = document.getElementById('export-choice').value;
+    if (type !== 'affect') {
+        const data = DATA[type];
+        if (!data.length) return alert("Pas de données");
+        let csvContent = Object.keys(data[0]).join(';') + '\n' + data.map(r => Object.values(r).map(v => typeof v === 'object' ? JSON.stringify(v) : v).join(';')).join('\n');
+        const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `SecteurPro_${type}.csv`; a.click();
+        return;
+    }
+
+    const data = DATA.affect;
+    if (!data.length) return alert("Pas de données");
+
+    // 1. Regroupement par agent
+    const groupes = data.reduce((acc, row) => {
+        if (!acc[row.agent]) acc[row.agent] = { lignes: [], totalTemps: 0, totalM2: 0 };
+        const l = row.local;
+        const surface = parseFloat(l.surface) || 0;
+        const cadence = CADENCES[l.ref] || {type: 'm2', val: 0};
+        const temps = (cadence.val === 0) ? 0 : (cadence.type === 'm2') ? (surface/cadence.val) : (surface*cadence.val);
+        
+        acc[row.agent].lignes.push({ bat: l.bat, etage: l.etage, secteur: l.secteur, ref: l.ref, surface: surface, temps: temps });
+        acc[row.agent].totalTemps += temps;
+        // On cumule la surface pour cet agent (si ce n'est pas un escalier)
+        if (!l.ref.includes('ESC')) acc[row.agent].totalM2 += surface;
+        
+        return acc;
+    }, {});
+
+    // 2. Construction du CSV
+    let csvContent = "Agent;Bâtiment;Étage;Secteur;Référence;Surface;Temps\n";
+
+    Object.keys(groupes).forEach(nomAgent => {
+        const g = groupes[nomAgent];
+        // Lignes de l'agent
+        g.lignes.forEach(l => {
+            csvContent += `"${nomAgent}";"${l.bat}";"${l.etage}";"${l.secteur}";"${l.ref}";"${l.surface}";"${convertirEnHeuresMinutes(l.temps)}"\n`;
+        });
+        // Ligne de total POUR CET AGENT uniquement
+        csvContent += `";";";";";";"TOTAL ${nomAgent}";"${convertirEnHeuresMinutes(g.totalTemps)}";"${g.totalM2.toFixed(2)} m²"\n`;
+        csvContent += "---;---;---;---;---;---;---\n"; // Séparateur visuel
     });
+
+    const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `SecteurPro_Affectations.csv`; a.click();
+}
+        function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
+         function chargerSauvegarde(e) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const parsed = JSON.parse(evt.target.result);
+            // On vérifie que la structure minimale existe
+            if(parsed.dico && parsed.etab && parsed.agents && parsed.affect) {
+                DATA = parsed;
+                saveAll();
+                alert("Données chargées avec succès !");
+            } else {
+                alert("Erreur : Le format du fichier JSON n'est pas reconnu par SecteurPro.");
+            }
+        } catch (err) {
+            alert("Erreur lors de la lecture du fichier : " + err.message);
+        }
+    };
+    reader.readAsText(e.target.files[0]);
+}
+        refreshAll();
+        function viderDonnees() {
+            if(confirm("Attention : cela va supprimer toutes les données des onglets Établissement, Agents et Affectations. Êtes-vous sûr ?")) {
+                DATA.etab = []; DATA.agents = []; DATA.affect = [];
+                saveAll(); alert("Les données ont été réinitialisées.");
+            }
+        }
     </script>
 </body>
 </html>
