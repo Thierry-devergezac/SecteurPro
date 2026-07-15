@@ -135,7 +135,7 @@
         function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
        // Chargement automatique des données
         // Remplace bien par l'URL que tu as copiée après avoir cliqué sur "Raw"
-fetch('https://raw.githubusercontent.com/Thierry-devergezac/SecteurPro/refs/heads/main/SecteurPro_Backup%20%281%29.json')
+fetch('https://raw.githubusercontent.com/Thierry-devergezac/SecteurPro/refs/heads/main/data.json')
     .then(response => {
         if (!response.ok) throw new Error("Impossible de charger le fichier");
         return response.json();
