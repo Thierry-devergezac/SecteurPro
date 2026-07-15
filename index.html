@@ -258,26 +258,28 @@
     const a = document.createElement('a'); a.href = url; a.download = `SecteurPro_Affectations.csv`; a.click();
 }
         function sauvegarderFichier() { const a = document.createElement('a'); a.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(DATA)); a.download = prompt("Nom de l'établissement :", "Etablissement") + ".json"; a.click(); }
-         function chargerSauvegarde(e) {
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-        try {
-            const parsed = JSON.parse(evt.target.result);
-            // On vérifie que la structure minimale existe
-            if(parsed.dico && parsed.etab && parsed.agents && parsed.affect) {
-                DATA = parsed;
-                saveAll();
-                alert("Données chargées avec succès !");
-            } else {
-                alert("Erreur : Le format du fichier JSON n'est pas reconnu par SecteurPro.");
-            }
-        } catch (err) {
-            alert("Erreur lors de la lecture du fichier : " + err.message);
+         // Chargement automatique des données depuis GitHub
+// Assure-toi que data.json est bien à la racine de ton dépôt
+fetch('https://raw.githubusercontent.com/Thierry-devergezac/SecteurPro/refs/heads/main/data.json')
+    .then(response => {
+        if (!response.ok) throw new Error("Impossible de charger les données distantes");
+        return response.json();
+    })
+    .then(data => {
+        // Si le localStorage est vide, on initialise avec les données du GitHub
+        if (!localStorage.getItem('secteurPro_master')) {
+            DATA = data;
+            saveAll();
+            console.log("Données initialisées depuis GitHub.");
+        } else {
+            console.log("Données locales détectées, le travail du jour est conservé.");
         }
-    };
-    reader.readAsText(e.target.files[0]);
-}
         refreshAll();
+    })
+    .catch(error => {
+        console.warn("Mode hors-ligne : utilisation du localStorage uniquement.", error);
+        refreshAll();
+    });
         function viderDonnees() {
             if(confirm("Attention : cela va supprimer toutes les données des onglets Établissement, Agents et Affectations. Êtes-vous sûr ?")) {
                 DATA.etab = []; DATA.agents = []; DATA.affect = [];
