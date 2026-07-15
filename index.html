@@ -135,18 +135,25 @@
         function chargerSauvegarde(e) { const reader = new FileReader(); reader.onload = function(evt) { DATA = JSON.parse(evt.target.result); saveAll(); alert("Données chargées !"); }; reader.readAsText(e.target.files[0]); }
        // Chargement automatique des données
         // Remplace bien par l'URL que tu as copiée après avoir cliqué sur "Raw"
+// Chargement automatique conditionnel
 fetch('https://raw.githubusercontent.com/Thierry-devergezac/SecteurPro/refs/heads/main/data.json')
     .then(response => {
-        if (!response.ok) throw new Error("Impossible de charger le fichier");
+        if (!response.ok) throw new Error("Erreur serveur");
         return response.json();
     })
     .then(data => {
-        DATA = data;
-        saveAll(); // On met à jour le localStorage avec les données distantes
+        // On ne met à jour que si le localStorage est vide (première utilisation)
+        if (!localStorage.getItem('secteurPro_master')) {
+            DATA = data;
+            saveAll();
+            console.log("Données distantes initialisées.");
+        } else {
+            console.log("Données locales conservées.");
+        }
         refreshAll();
     })
     .catch(error => {
-        console.error("Erreur de chargement distant, utilisation des données locales :", error);
+        console.warn("Utilisation du mode hors-ligne :", error);
         refreshAll();
     });
     </script>
